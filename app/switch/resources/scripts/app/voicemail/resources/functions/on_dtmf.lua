@@ -27,7 +27,7 @@
 	function on_dtmf(s, type, obj, arg)
 		if (type == "dtmf") then
 			freeswitch.console_log("info", "[voicemail] dtmf digit: " .. obj['digit'] .. ", duration: " .. obj['duration'] .. "\n");
-			if (obj['digit'] == "#") then
+			if (obj['digit'] == "#" or obj['digit'] == skip_key) then
 				return 0;
 			else
 				dtmf_digits = dtmf_digits .. obj['digit'];
@@ -35,17 +35,17 @@
 					freeswitch.console_log("info", "[voicemail] dtmf digits: " .. dtmf_digits .. ", length: ".. string.len(dtmf_digits) .." max_digits: " .. max_digits .. "\n");
 				end
 				if (stream_seek == true) then
-					if (dtmf_digits == "4") then
+					if (dtmf_digits == rewind_key) then
 						dtmf_digits = "";
-						return("seek:-5000");
+						return("seek:-" .. seek_samples);
 					end
-					if (dtmf_digits == "5") then
+					if (dtmf_digits == pause_key) then
 						dtmf_digits = "";
 						return("pause");
 					end
-					if (dtmf_digits == "6") then
+					if (dtmf_digits == forward_key) then
 						dtmf_digits = "";
-						return("seek:+5000");
+						return("seek:+" .. seek_samples);
 					end
 				end
 				if (string.len(dtmf_digits) >= max_digits) then

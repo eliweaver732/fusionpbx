@@ -30,6 +30,11 @@
 	max_timeouts = 3;
 	digit_timeout = 3000;
 	stream_seek = false;
+	seek_samples = "3000";
+	rewind_key = "7";
+	pause_key = "8";
+	forward_key = "9";
+	skip_key = "6";
 
 --direct dial
 	direct_dial = {}

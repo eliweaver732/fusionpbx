@@ -233,7 +233,7 @@
 		--post listen options
 			if (session:ready()) then
 				if (string.len(dtmf_digits) == 0) then
-					dtmf_digits = session:playAndGetDigits(1, 1, max_tries, digit_timeout, "#", "phrase:voicemail_listen_file_options:1:2:3:5:7:8:9:0", "", "^[\\d\\*#]$");
+					dtmf_digits = session:playAndGetDigits(1, 1, max_tries, digit_timeout, "#", "phrase:voicemail_listen_file_options:1:2:3:4:5:6:7:8:9:0", "", "^[\\d\\*#]$");
 				end
 			end
 
@@ -249,42 +249,22 @@
 				if (dtmf_digits == "1") then
 					return listen_to_recording(message_number, uuid, created_epoch, caller_id_name, caller_id_number, message_status);
 				elseif (dtmf_digits == "2") then
-					message_saved(voicemail_id, uuid);
+					message_saved(voicemail_id, uuid, 'saved');
 					session:execute("playback", "phrase:voicemail_ack:saved");
 				elseif (dtmf_digits == "3") then
-					session:streamFile(sounds_dir.."/"..default_language.."/"..default_dialect.."/"..default_voice.."/voicemail/vm-from.wav");
-					session:say(caller_id_number, default_language, "name_spelled", "iterated");
-					if (current_time_zone ~= nil) then
-						session:execute("set", "timezone="..current_time_zone.."");
-					end
-					session:say(created_epoch, default_language, "current_date_time", "pronounced");
-					session:execute("sleep", "1000");
-					return listen_to_recording(message_number, uuid, created_epoch, caller_id_name, caller_id_number, message_status, 'false');
+					message_saved(voicemail_id, uuid, 'deleted');
+					session:execute("playback", "phrase:voicemail_ack:deleted");
+				elseif (dtmf_digits == "4") then
+					forward_to_extension(voicemail_id, uuid);
+					dtmf_digits = '';
 				elseif (dtmf_digits == "5") then
 					message_saved(voicemail_id, uuid);
 					return_call(caller_id_number);
-				elseif (dtmf_digits == "7") then
-					delete_recording(voicemail_id, uuid);
-					message_waiting(voicemail_id, domain_uuid);
-					--fix for extensions that start with 0 (Ex: 0712)
-						if (voicemail_id_copy ~= voicemail_id  and voicemail_id_copy ~= nil) then
-							message_waiting(voicemail_id_copy, domain_uuid);
-						end
-				elseif (dtmf_digits == "8") then
-					forward_to_extension(voicemail_id, uuid);
-					dtmf_digits = '';
-				elseif (dtmf_digits == "9") then
-					send_email(voicemail_id, uuid);
-					dtmf_digits = '';
-					session:execute("playback", "phrase:voicemail_ack:emailed");
 				elseif (dtmf_digits == "*") then
 					timeouts = 0;
-					return main_menu();
-				elseif (dtmf_digits == "0") then
-					message_saved(voicemail_id, uuid);
-					session:transfer("0", "XML", context);
-				elseif (dtmf_digits == "#") then
-					return;
+					return "previous";
+				elseif (dtmf_digits == "#" or dtmf_digits == skip_key) then
+					return "next";
 				else
 					message_saved(voicemail_id, uuid);
 					session:execute("playback", "phrase:voicemail_ack:saved");
