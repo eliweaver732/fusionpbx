@@ -60,6 +60,8 @@
 						sql = sql .. [[AND (message_status is null or message_status = '') ]];
 					elseif (message_status == "saved") then
 						sql = sql .. [[AND message_status = 'saved' ]];
+					elseif (message_status == "deleted") then
+						sql = sql .. [[AND message_status = 'deleted' ]];
 					end
 					sql = sql .. [[ORDER BY created_epoch ]]..message_order;
 					local params = {domain_uuid = domain_uuid, voicemail_uuid = voicemail_uuid};

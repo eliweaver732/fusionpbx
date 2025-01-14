@@ -51,7 +51,7 @@
 				elseif (dtmf_digits == "6") then
 					--To change your password press 6
 					change_password(voicemail_id, "advanced");
-				elseif (dtmf_digits == "0") then
+				elseif (dtmf_digits == "*") then
 					--For the main menu press 0
 					timeouts = 0;
 					main_menu();

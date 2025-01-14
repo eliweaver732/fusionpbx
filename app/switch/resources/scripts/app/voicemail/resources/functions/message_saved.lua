@@ -41,8 +41,9 @@
 			dbh:query(sql, params, function(row)
 				db_voicemail_uuid = row["voicemail_uuid"];
 			end);
-		--delete from the database
-			sql = [[UPDATE v_voicemail_messages SET message_status = :status
+		--update the status in the database
+			sql = [[UPDATE v_voicemail_messages SET message_status = :status,
+				update_date = now()
 				WHERE domain_uuid = :domain_uuid
 				AND voicemail_uuid = :voicemail_uuid
 				AND voicemail_message_uuid = :uuid]];

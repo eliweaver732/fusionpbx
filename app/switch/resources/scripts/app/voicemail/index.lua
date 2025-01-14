@@ -368,6 +368,7 @@
 	require "app.voicemail.resources.functions.mwi_notify";
 	require "app.voicemail.resources.functions.blf_notify";
 	require "app.voicemail.resources.functions.tutorial";
+	require "app.voicemail.resources.functions.call_or_send_message";
 
 --send a message waiting event
 	if (voicemail_action == "mwi") then
