@@ -240,6 +240,7 @@ if (!class_exists('xml_cdr')) {
 				//save the call details record to the database
 				$this->database->app_name = 'xml_cdr';
 				$this->database->app_uuid = '4a085c51-7635-ff03-f67b-86e834422848';
+
 				//$this->database->domain_uuid = $domain_uuid;
 				$response = $this->database->save($this->array, false);
 				if ($response['code'] == '200') {
@@ -614,6 +615,10 @@ if (!class_exists('xml_cdr')) {
 						$domain_name = urldecode($xml->variables->domain_name);
 						$domain_uuid = urldecode($xml->variables->domain_uuid);
 
+					//sanitize the caller ID
+						$caller_id_name = preg_replace('#[^a-zA-Z 0-9\-\.]#', '', $caller_id_name);
+						$caller_id_number = preg_replace('#[^0-9\-]#', '', $caller_id_number);
+
 					//misc
 						$this->array[$key][0]['xml_cdr_uuid'] = $uuid;
 						$this->array[$key][0]['destination_number'] = $destination_number;
@@ -633,6 +638,17 @@ if (!class_exists('xml_cdr')) {
 						$this->array[$key][0]['status'] = $status;
 
 					//time
+						//catch invalid call detail records
+						if (empty($xml->variables->start_epoch)) {
+							//empty the array so it can't save
+							$this->array = null;
+
+							//move the file to the failed location
+							$this->move_to_failed($this->file);
+
+							//stop processing
+							return;
+						}
 						$start_epoch = urldecode($xml->variables->start_epoch);
 						$this->array[$key][0]['start_epoch'] = $start_epoch;
 						$this->array[$key][0]['start_stamp'] = is_numeric((int)$start_epoch) ? date('c', $start_epoch) : null;
@@ -1481,6 +1497,15 @@ if (!class_exists('xml_cdr')) {
 			}
 		}
 
+		public function moved_to_failed($failed_file) {
+			$xml_cdr_dir = $this->setting->get('switch', 'log', '/var/log/freeswitch').'/xml_cdr';
+			if (!file_exists($xml_cdr_dir.'/failed')) {
+				if (!mkdir($xml_cdr_dir.'/failed', 0660, true)) {
+					die('Failed to create '.$xml_cdr_dir.'/failed');
+				}
+			}
+			rename($xml_cdr_dir.'/'.$failed_file, $xml_cdr_dir.'/failed/'.$failed_file);
+		}
 
 		/**
 		 * get xml from the filesystem and save it to the database
@@ -2263,5 +2288,3 @@ if (!class_exists('xml_cdr')) {
 
 	} //class
 }
-
-?>
