@@ -25,7 +25,7 @@
 
 -- call a phone number or a voicemail
     function call_or_send_message(destination)
-        if (destination != nil) then
+        if (destination ~= nil) then
             return_call(destination);
             return;
         end
