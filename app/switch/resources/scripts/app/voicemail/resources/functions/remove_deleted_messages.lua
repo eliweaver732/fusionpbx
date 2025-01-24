@@ -39,10 +39,10 @@
         --get messages
             local sql = [[SELECT * FROM v_voicemail_messages 
                 WHERE message_status = 'deleted' 
-                AND (update_date + interval ':retention_hours hours') < now()
+                AND (update_date + interval '24 hours') < now()
                 AND voicemail_uuid = :voicemail_uuid
                 AND domain_uuid = :domain_uuid]];
-            local params = {retention_hours = "24", voicemail_uuid = db_voicemail_uuid, domain_uuid = domain_uuid}
+            local params = {voicemail_uuid = db_voicemail_uuid, domain_uuid = domain_uuid}
             messages_to_delete = {};
             dbh:query(sql, params, function(row)
                 table.insert(messages_to_delete, row);
