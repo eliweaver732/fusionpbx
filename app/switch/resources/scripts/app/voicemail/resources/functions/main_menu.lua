@@ -39,7 +39,7 @@
 				end
 
 			--remove all the too old deleted messages
-				remove_deleted_messages(voicmail_id);
+				remove_deleted_messages(voicemail_id);
 
 			--new voicemail count
 				if (session:ready()) then
