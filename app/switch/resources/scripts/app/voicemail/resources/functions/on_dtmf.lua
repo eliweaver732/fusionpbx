@@ -27,13 +27,19 @@
 	function on_dtmf(s, type, obj, arg)
 		if (type == "dtmf") then
 			freeswitch.console_log("info", "[voicemail] dtmf digit: " .. obj['digit'] .. ", duration: " .. obj['duration'] .. "\n");
+			dtmf_digits = dtmf_digits .. obj['digit'];
+			if (debug["info"]) then
+				freeswitch.console_log("info", "[voicemail] dtmf digits: " .. dtmf_digits .. ", length: ".. string.len(dtmf_digits) .." max_digits: " .. max_digits .. "\n");
+			end
+			if (string.len(dtmf_digits) >= max_digits) then
+				if (debug["info"]) then
+					freeswitch.console_log("info", "[voicemail] max_digits reached\n");
+				end
+				return 0;
+			end
 			if (obj['digit'] == "#" or obj['digit'] == skip_key) then
 				return 0;
 			else
-				dtmf_digits = dtmf_digits .. obj['digit'];
-				if (debug["info"]) then
-					freeswitch.console_log("info", "[voicemail] dtmf digits: " .. dtmf_digits .. ", length: ".. string.len(dtmf_digits) .." max_digits: " .. max_digits .. "\n");
-				end
 				if (stream_seek == true) then
 					if (dtmf_digits == rewind_key) then
 						dtmf_digits = "";
@@ -47,12 +53,6 @@
 						dtmf_digits = "";
 						return("seek:+" .. seek_samples);
 					end
-				end
-				if (string.len(dtmf_digits) >= max_digits) then
-					if (debug["info"]) then
-						freeswitch.console_log("info", "[voicemail] max_digits reached\n");
-					end
-					return 0;
 				end
 			end
 		end

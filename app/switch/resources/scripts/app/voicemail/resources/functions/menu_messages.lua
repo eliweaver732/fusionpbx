@@ -37,7 +37,7 @@
 		--flush dtmf digits from the input buffer
 			--session:flushDigits();
 		--set the message number
-			message_number = 0;
+			message_number = 1;
 		--message_status new,saved
 			if (session:ready()) then
 				if (voicemail_id ~= nil) then
@@ -68,7 +68,51 @@
 					if (debug["sql"]) then
 						freeswitch.consoleLog("notice", "[voicemail] SQL: " .. sql .. "; params:" .. json.encode(params) .. "\n");
 					end
+
+					--insert all values into a table to allow stepping backward or forward
+					voicemails = {}
 					dbh:query(sql, params, function(row)
+						table.insert(voicemails, row);
+					end);
+
+					--process the message queue
+					total_messages = #voicemails;
+					while message_number <= total_messages and message_number > 0 do
+						local row = voicemails[message_number];
+						if (session:ready()) then
+							if (debug["info"]) then
+								freeswitch.consoleLog("notice", message_number.." "..string.lower(row["voicemail_message_uuid"]).." "..row["created_epoch"]);
+							end
+							result = listen_to_recording(message_number, 
+								string.lower(row["voicemail_message_uuid"]), 
+								row["created_epoch"], 
+								row["caller_id_name"], 
+								row["caller_id_number"], 
+								message_status
+							);
+
+						--handle the return value
+							if (result == "next") then
+								message_number = message_number + 1;
+								if (debug["info"]) then
+									freeswitch.consoleLog("debug", "Next message requested; incrementing message_number.\n");
+								end
+							elseif (result == "previous") then
+								message_number = message_number - 1;
+								if (debug["info"]) then
+									freeswitch.consoleLog("debug", "Previous message requested; decrementing message_number.\n");
+								end
+							else
+								--unknown option
+								if (debug["info"]) then
+									freeswitch.consoleLog("err", "Unknown result from listen_to_recording. Result: " .. result .. " \n");
+								end
+								break
+							end
+						end
+					end
+
+					--dbh:query(sql, params, function(row)
 						--get the values from the database
 							--row["voicemail_message_uuid"];
 							--row["created_epoch"];
@@ -78,15 +122,15 @@
 							--row["message_status"];
 							--row["message_priority"];
 						--increment the message count
-							message_number = message_number + 1;
+							--message_number = message_number + 1;
 						--listen to the message
-							if (session:ready()) then
-								if (debug["info"]) then
-									freeswitch.consoleLog("notice", message_number.." "..string.lower(row["voicemail_message_uuid"]).." "..row["created_epoch"]);
-								end
-								return listen_to_recording(message_number, string.lower(row["voicemail_message_uuid"]), row["created_epoch"], row["caller_id_name"], row["caller_id_number"], message_status);
-							end
-					end);
+							--if (session:ready()) then
+								--if (debug["info"]) then
+									--freeswitch.consoleLog("notice", message_number.." "..string.lower(row["voicemail_message_uuid"]).." "..row["created_epoch"]);
+								--end
+								--return listen_to_recording(message_number, string.lower(row["voicemail_message_uuid"]), row["created_epoch"], row["caller_id_name"], row["caller_id_number"], message_status);
+							--end
+					--end);
 				end
 			end
 

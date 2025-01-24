@@ -266,8 +266,6 @@
 				elseif (dtmf_digits == skip_key) then
 					timeouts = 0;
 					return "next";
-				elseif (dtmf_digits == "#") then
-					return "next";
 				else
 					message_saved(voicemail_id, uuid);
 					session:execute("playback", "phrase:voicemail_ack:saved");
