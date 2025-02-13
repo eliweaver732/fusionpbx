@@ -198,15 +198,19 @@
 					end
 				end
 
-				if (settings['voicemail']['message_caller_id_number'] ~= nil) then
-					if (settings['voicemail']['message_caller_id_number']['text'] ~= nil) then
-						vm_say_caller_id_number = settings['voicemail']['message_caller_id_number']['text'];
+				if (vm_say_caller_id_number == nil);
+					if (settings['voicemail']['message_caller_id_number'] ~= nil) then
+						if (settings['voicemail']['message_caller_id_number']['text'] ~= nil) then
+							vm_say_caller_id_number = settings['voicemail']['message_caller_id_number']['text'];
+						end
 					end
-				end;
+				end
 
-				if (settings['voicemail']['message_date_time'] ~= nil) then
-					if (settings['voicemail']['message_date_time']['text'] ~= nil) then
-						vm_say_date_time = settings['voicemail']['message_date_time']['text'];
+				if (vm_say_date_time == nil);
+					if (settings['voicemail']['message_date_time'] ~= nil) then
+						if (settings['voicemail']['message_date_time']['text'] ~= nil) then
+							vm_say_date_time = settings['voicemail']['message_date_time']['text'];
+						end
 					end
 				end
 
