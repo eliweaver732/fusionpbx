@@ -2,7 +2,7 @@
 
 //application details
 $apps[$x]['name'] = "RoboBlock";
-$apps[$x]['uuid'] = "f51d2f40-8d30-4b2f-9f14-2e8caa5b0d12";
+$apps[$x]['uuid'] = "7d2ba9b9-5d66-4df4-a71e-67fe74d418a0";
 $apps[$x]['category'] = "Security";
 $apps[$x]['subcategory'] = "";
 $apps[$x]['version'] = "1.0";
@@ -26,7 +26,7 @@ $apps[$x]['permissions'][$y]['groups'][] = "superadmin";
 
 //default settings
 $y = 0;
-$apps[$x]['default_settings'][$y]['default_setting_uuid'] = "b42c00d0-0c9c-4a3d-8f7e-roboblockgreetfile";
+$apps[$x]['default_settings'][$y]['default_setting_uuid'] = "be4d17e4-8dcb-48ea-8197-7012c8bbbb6b";
 $apps[$x]['default_settings'][$y]['default_setting_category'] = "RoboBlock";
 $apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "greeting_file";
 $apps[$x]['default_settings'][$y]['default_setting_name'] = "string";
@@ -36,7 +36,7 @@ $apps[$x]['default_settings'][$y]['default_setting_description']['en-us'] = "Gre
 
 //schema
 $y = 0;
-$apps[$x]['db'][$y]['table']['name'] = "roboblock_callers";
+$apps[$x]['db'][$y]['table']['name'] = "v_roboblock";
 $apps[$x]['db'][$y]['table']['parent'] = "";
 
 $z = 0;

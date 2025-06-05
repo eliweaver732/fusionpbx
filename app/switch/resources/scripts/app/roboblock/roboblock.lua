@@ -20,7 +20,7 @@ end
 local function get_or_create_caller(caller_id, domain_uuid)
   local sql_select = [[
     SELECT uuid, trust_percent, times_blocked, times_allowed
-    FROM roboblock_callers WHERE caller_id_number = :caller_id_number
+    FROM v_roboblock WHERE caller_id_number = :caller_id_number
   ]]
   local row = dbh:first_row(sql_select, {caller_id_number = caller_id})
 
@@ -29,7 +29,7 @@ local function get_or_create_caller(caller_id, domain_uuid)
   else
     local new_uuid = api:execute("create_uuid")
     local sql_insert = [[
-      INSERT INTO roboblock_callers (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed)
+      INSERT INTO v_roboblock (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed)
       VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0)
     ]]
     dbh:query(sql_insert, {
@@ -47,7 +47,7 @@ local function update_caller(caller_id, trust, blocked, allowed)
   if trust > 100 then trust = 100 end
 
   local sql_update = [[
-    UPDATE roboblock_callers
+    UPDATE v_roboblock
     SET trust_percent = :trust,
         times_blocked = :blocked,
         times_allowed = :allowed
@@ -67,10 +67,16 @@ local function run_captcha()
   session:answer()
   session:sleep(1000)
 
-  -- Play the greeting and a beep only once
+  -- Play the greeting once
   session:streamFile("roboblock/Roboblocker_captcha_greeting.wav")
-  session:streamFile("tone_stream://%(1000, 0, 640)")
 
+  -- Play digits BEFORE the beep
+  session:streamFile("digits/" .. pin:sub(1,1) .. ".wav")
+  session:streamFile("digits/" .. pin:sub(2,2) .. ".wav")
+  session:streamFile("digits/" .. pin:sub(3,3) .. ".wav")
+
+  -- Then play the beep
+  session:streamFile("tone_stream://%(1000, 0, 640)")
   -- Play digits each attempt using getDigits
   for attempt = 1, 3 do
     session:streamFile("digits/" .. pin:sub(1,1) .. ".wav")
