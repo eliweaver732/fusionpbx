@@ -1,23 +1,25 @@
 
 -- roboblock.lua
--- Path: /var/www/fusionpbx/app/switch/resources/scripts/app/roboblock/roboblock.lua
+-- Path: app/switch/resources/scripts/app/roboblock/roboblock.lua
 
 local dbh = require "resources.functions.database_handle"
-local uuid = require "resources.functions.uuid"
 local log = require "resources.functions.log".roboblock
+local api = freeswitch.API()
 
 math.randomseed(os.time())
 
--- Get caller ID from session
-local function get_caller_id()
+-- Get caller ID and domain UUID from session
+local function get_call_info()
   local cid = session:getVariable("caller_id_number") or ""
-  return cid ~= "" and cid or nil
+  local domain_uuid = session:getVariable("domain_uuid") or ""
+  if cid == "" then return nil, nil end
+  return cid, domain_uuid
 end
 
 -- Create or fetch caller record from DB
-local function get_or_create_caller(caller_id)
+local function get_or_create_caller(caller_id, domain_uuid)
   local sql_select = [[
-    SELECT id, trust_percent, times_blocked, times_allowed
+    SELECT uuid, trust_percent, times_blocked, times_allowed
     FROM roboblock_callers WHERE caller_id_number = :caller_id_number
   ]]
   local row = dbh:first_row(sql_select, {caller_id_number = caller_id})
@@ -25,12 +27,16 @@ local function get_or_create_caller(caller_id)
   if row then
     return tonumber(row.trust_percent), tonumber(row.times_blocked), tonumber(row.times_allowed)
   else
-    local new_id = uuid()
+    local new_uuid = api:execute("create_uuid")
     local sql_insert = [[
-      INSERT INTO roboblock_callers (id, caller_id_number, trust_percent, times_blocked, times_allowed)
-      VALUES (:id, :caller_id_number, 50, 0, 0)
+      INSERT INTO roboblock_callers (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed)
+      VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0)
     ]]
-    dbh:query(sql_insert, {id = new_id, caller_id_number = caller_id})
+    dbh:query(sql_insert, {
+      uuid = new_uuid,
+      domain_uuid = domain_uuid,
+      caller_id_number = caller_id
+    })
     return 50, 0, 0
   end
 end
@@ -55,22 +61,22 @@ local function update_caller(caller_id, trust, blocked, allowed)
   })
 end
 
--- CAPTCHA Phase using playAndGetDigits
+-- CAPTCHA Phase
 local function run_captcha()
   local pin = tostring(math.random(100, 999))
   session:answer()
   session:sleep(1000)
 
-  local prompt = table.concat({
-    "ivr/ivr-please_enter_the_following_digits.wav",
-    "digits/" .. pin:sub(1,1) .. ".wav",
-    "digits/" .. pin:sub(2,2) .. ".wav",
-    "digits/" .. pin:sub(3,3) .. ".wav",
-    "ivr/ivr-followed_by_the_pound_key.wav"
-  }, "!")
+  -- Play the greeting and a beep only once
+  session:streamFile("roboblock/Roboblocker_captcha_greeting.wav")
+  session:streamFile("tone_stream://%(1000, 0, 640)")
 
+  -- Play digits each attempt using getDigits
   for attempt = 1, 3 do
-    local input = session:playAndGetDigits(3, 3, 1, 5000, "#", prompt, "", "\\d+")
+    session:streamFile("digits/" .. pin:sub(1,1) .. ".wav")
+    session:streamFile("digits/" .. pin:sub(2,2) .. ".wav")
+    session:streamFile("digits/" .. pin:sub(3,3) .. ".wav")
+    local input = session:getDigits(3, "", 5000)
     if not input or input == "" then
       return false, "hangup"
     elseif input == pin then
@@ -108,10 +114,10 @@ end
 
 -- Main logic
 local function main()
-  local caller_id = get_caller_id()
+  local caller_id, domain_uuid = get_call_info()
   if not caller_id then return end
 
-  local trust, blocked, allowed = get_or_create_caller(caller_id)
+  local trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
 
   if trust > 80 then
     allow_call(caller_id, trust, blocked, allowed)
