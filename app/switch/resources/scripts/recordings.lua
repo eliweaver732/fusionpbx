@@ -45,6 +45,7 @@
 
 --setup the database connection
 	local Database = require "resources.functions.database";
+	local transcriber = require "resources.functions.transcribe_recording"
 	local db = dbh or Database.new('system');
 
 --include json library
@@ -243,6 +244,9 @@
 				local Database = require "resources.functions.database";
 				local db = dbh or Database.new('system');
 				db:query(sql, params);
+				-- build the command to run the transcription script
+				local full_path = recordings_dir .. "/" .. recording_filename
+				transcriber.transcribe_and_notify(recording_uuid, domain_name, full_path)
 			end
 
 		--preview the recording
