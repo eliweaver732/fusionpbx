@@ -61,3 +61,29 @@
 		$apps[$x]['default_settings'][$y]['default_setting_value'] = "\${year}\${month_number}\${day}.\${time}.\${caller_id_number}.\${uuid}.mp3";
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = "false";
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = "Call recording download template. Options: \${uuid}, \${caller_id_name}, \${caller_id_number}, \${caller_destination}, \${destination_number}, \${date}, \${call_direction}, \${year}, \${month_name}, \${month_number}, \${day}, \${time}";
+		$y++;
+		$apps[$x]['default_settings'][$y]['default_setting_uuid'] = 'b7a3c2f5-9d0e-4baf-b231-11e251601b62';
+		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
+		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'transcription_enabled';
+		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'boolean';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = 'false';
+		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
+		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Enable or disable automatic transcription of call recordings.';
+
+		$y++;
+		$apps[$x]['default_settings'][$y]['default_setting_uuid'] = 'd75eeb38-c214-4201-8f45-514c13ef2892';
+		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
+		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'email';
+		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'text';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '';
+		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
+		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Optional default email address for sending call recording transcriptions.';
+
+		$y++;
+		$apps[$x]['default_settings'][$y]['default_setting_uuid'] = '4f998d0b-1d66-499e-b418-8f5139b6b12d';
+		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
+		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'max_transcription_time';
+		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'numeric';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '45';
+		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
+		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Max recording length in seconds that will be transcribed.';

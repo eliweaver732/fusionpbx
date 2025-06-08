@@ -145,7 +145,7 @@
 		$email_status = $row["email_status"];
 		$email_retry_count = $row["email_retry_count"];
 		$email_uuid = $row["email_uuid"];
-		$email_job_type = $row["email_job_type"] ?? '';
+		$email_job_type = $row["email_job_type"] ?? 'voicemail';
 		//$email_action_before = $row["email_action_before"];
 		$email_action_after = $row["email_action_after"];
 	}
@@ -185,8 +185,17 @@
 	}
 	elseif ($email_job_type == 'call_recording') {
 		// call recording job
-		$transcribe_enabled = $settings->get('transcribe', 'enabled', false);
-		$voicemail_transcription_enabled = true;
+		$transcribe_enabled = false;
+		$voicemail_transcription_enabled = false;
+
+		// Check if transcription is enabled in settings for call_recordings category
+		if ($settings->exists('call_recordings', 'transcription_enabled')) {
+			$transcribe_enabled = $settings->get('call_recordings', 'transcription_enabled', false);
+			if (gettype($transcribe_enabled) === 'string') {
+				$transcribe_enabled = ($transcribe_enabled === 'true') ? true : false;
+			}
+			$voicemail_transcription_enabled = $transcribe_enabled;
+		}
 	}
 	unset($parameters);
 
@@ -303,14 +312,22 @@
 	//echo "Body: ".$email_body."\n";
 
 //update the message transcription
-	if ((isset($voicemail_transcription_enabled) && $voicemail_transcription_enabled || $email_job_type === 'call_recording') && isset($transcribe_message)) {
+	if ($email_job_type === 'voicemail' && isset($voicemail_transcription_enabled) && $voicemail_transcription_enabled && isset($transcribe_message)) {
 		$sql = "update v_voicemail_messages ";
 		$sql .= "set message_transcription = :message_transcription ";
 		$sql .= "where voicemail_message_uuid = :voicemail_message_uuid; ";
 		$parameters['voicemail_message_uuid'] = $email_uuid;
 		$parameters['message_transcription'] = $transcribe_message;
-		//echo $sql."\n";
-		//print_r($parameters);
+		$database->execute($sql, $parameters);
+		unset($parameters);
+	}
+
+	if ($email_job_type === 'call_recording' && isset($transcribe_message)) {
+		$sql = "update v_xml_cdr ";
+		$sql .= "set record_transcription = :record_transcription ";
+		$sql .= "where uuid = :uuid; ";
+		$parameters['uuid'] = $email_uuid;  // assuming $email_uuid is the recording UUID
+		$parameters['record_transcription'] = $transcribe_message;
 		$database->execute($sql, $parameters);
 		unset($parameters);
 	}
