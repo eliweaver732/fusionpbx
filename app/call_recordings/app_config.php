@@ -75,7 +75,7 @@
 		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
 		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'email';
 		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'text';
-		$apps[$x]['default_settings'][$y]['default_setting_value'] = '2700';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '';
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Optional default email address for sending call recording transcriptions.';
 
