@@ -96,3 +96,5 @@
 		$apps[$x]['default_settings'][$y]['default_setting_value'] = '60';
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Min recording length in seconds that will be transcribed.';
+
+?>
