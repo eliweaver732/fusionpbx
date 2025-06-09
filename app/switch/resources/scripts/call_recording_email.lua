@@ -26,13 +26,8 @@ end
 local dbh = Database.new('system')
 local settings = Settings.new(dbh, domain_name, nil)
 
--- Fetch SMTP settings from the database
+-- Fetch from address from the database
 local email_from = settings:get('email', 'smtp_from', 'text') or 'noreply@' .. domain_name
-local smtp_host = settings:get('email', 'smtp_host', 'text') or 'smtp.yourdomain.com'
-local smtp_port = settings:get('email', 'smtp_port', 'numeric') or 25
-local smtp_secure = settings:get('email', 'smtp_secure', 'text') or 'tls'
-local smtp_username = settings:get('email', 'smtp_username', 'text') or ''
-local smtp_password = settings:get('email', 'smtp_password', 'text') or ''
 
 -- Fetch the destination email from the settings
 local email_to = settings:get('call_recordings', 'email', 'text') or ''
@@ -152,12 +147,11 @@ local insert_sql = [[
 INSERT INTO v_email_queue (
     email_queue_uuid, domain_uuid, hostname, email_date, email_from, email_to,
     email_subject, email_body, email_status, email_retry_count,
-    email_job_type, email_uuid, smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password
+    email_job_type, email_uuid
 )
 SELECT
     :email_queue_uuid, d.domain_uuid, :hostname, now(), :email_from, :email_to,
-    :email_subject, :email_body, 'waiting', 0, 'call_recording', :email_uuid,
-    :smtp_host, :smtp_port, :smtp_secure, :smtp_username, :smtp_password
+    :email_subject, :email_body, 'waiting', 0, 'call_recording', :email_uuid
 FROM v_domains d
 WHERE d.domain_name = :domain_name
 ]]
@@ -170,12 +164,7 @@ dbh:query(insert_sql, {
     email_subject = email_subject,
     email_body = email_body,
     email_uuid = uuid,
-    domain_name = domain_name,
-    smtp_host = smtp_host,
-    smtp_port = smtp_port,
-    smtp_secure = smtp_secure,
-    smtp_username = smtp_username,
-    smtp_password = smtp_password
+    domain_name = domain_name
 })
 
 -- Insert attachment record
