@@ -26,6 +26,15 @@ end
 local dbh = Database.new('system')
 local settings = Settings.new(dbh, domain_name, nil)
 
+-- Fetch SMTP settings from the database
+local email_from = settings:get('email', 'smtp_from', 'text') or 'noreply@' .. domain_name
+local smtp_host = settings:get('email', 'smtp_host', 'text') or 'smtp.yourdomain.com'
+local smtp_port = settings:get('email', 'smtp_port', 'numeric') or 25
+local smtp_secure = settings:get('email', 'smtp_secure', 'text') or 'tls'
+local smtp_username = settings:get('email', 'smtp_username', 'text') or ''
+local smtp_password = settings:get('email', 'smtp_password', 'text') or ''
+
+-- Fetch the destination email from the settings
 local email_to = settings:get('call_recordings', 'email', 'text') or ''
 if email_to == '' then
     freeswitch.consoleLog("NOTICE", "[call_recording_email] No email destination configured. Skipping.\n")
@@ -91,35 +100,45 @@ dbh:query(cdr_sql, {domain_name = domain_name, uuid = uuid}, function(row)
     transcription = row.record_transcription or ""
 end)
 
--- Calculate call recording length in seconds
-local call_recording_length = ""
+-- Function to get the WAV file duration using sox command
+local function get_wav_duration(filename)
+  local command = string.format("sox \"%s\" -n stat 2>&1 | grep \"Length (seconds):\"", filename)
+  local file = io.popen(command, "r")
+  if not file then
+    freeswitch.consoleLog("ERR", "Error: Could not execute SoX command.\n")  -- Using freeswitch.consoleLog for error messages
+    return nil
+  end
 
-local function parse_date(d)
-    if #d < 19 then return nil end
-    local y = tonumber(d:sub(1,4))
-    local m = tonumber(d:sub(6,7))
-    local day = tonumber(d:sub(9,10))
-    local h = tonumber(d:sub(12,13))
-    local min = tonumber(d:sub(15,16))
-    local s = tonumber(d:sub(18,19))
-    return os.time({year = y, month = m, day = day, hour = h, min = min, sec = s})
+  local output = file:read("*a")
+  file:close()
+
+  -- Extract the duration using a pattern match
+  local duration_str = output:match("Length % (seconds%):%s*(%d+%.?%d*)")
+  if duration_str then
+    return tonumber(duration_str)
+  else
+    freeswitch.consoleLog("ERR", string.format("Error: Could not find duration for '%s'.\n", filename))  -- Using freeswitch.consoleLog
+    return nil
+  end
 end
 
-local start_time = parse_date(start_stamp)
-local end_time = parse_date(end_stamp)
-if start_time and end_time then
-    call_recording_length = tostring(os.difftime(end_time, start_time))
-end
+-- Get the recording length using sox
+local call_recording_length = get_wav_duration(full_path)  -- Use the WAV file path
 
 -- Replace variables in subject and body
 local replacements = {
-    ["${message_text}"] = transcription,
     ["${caller_id_number}"] = caller_id_number,
     ["${caller_id_name}"] = caller_id_name,
     ["${uuid}"] = uuid,
-    ["${call_recording_length}"] = call_recording_length
+    ["${call_recording_length}"] = call_recording_length or "0"  -- Default to 0 if not found
 }
 
+-- Only replace ${message_text} if transcription is not empty
+if transcription and transcription ~= "" then
+    replacements["${message_text}"] = transcription
+end
+
+-- Perform replacements in subject and body
 for k, v in pairs(replacements) do
     if v == nil then v = "" end
     email_subject = email_subject:gsub(k, v)
@@ -133,11 +152,12 @@ local insert_sql = [[
 INSERT INTO v_email_queue (
     email_queue_uuid, domain_uuid, hostname, email_date, email_from, email_to,
     email_subject, email_body, email_status, email_retry_count,
-    email_job_type, email_uuid
+    email_job_type, email_uuid, smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password
 )
 SELECT
     :email_queue_uuid, d.domain_uuid, :hostname, now(), :email_from, :email_to,
-    :email_subject, :email_body, 'waiting', 0, 'call_recording', :email_uuid
+    :email_subject, :email_body, 'waiting', 0, 'call_recording', :email_uuid,
+    :smtp_host, :smtp_port, :smtp_secure, :smtp_username, :smtp_password
 FROM v_domains d
 WHERE d.domain_name = :domain_name
 ]]
@@ -145,12 +165,17 @@ WHERE d.domain_name = :domain_name
 dbh:query(insert_sql, {
     email_queue_uuid = email_queue_uuid,
     hostname = freeswitch.getGlobalVariable("hostname"),
-    email_from = "noreply@" .. domain_name,
+    email_from = email_from,
     email_to = email_to,
     email_subject = email_subject,
     email_body = email_body,
     email_uuid = uuid,
-    domain_name = domain_name
+    domain_name = domain_name,
+    smtp_host = smtp_host,
+    smtp_port = smtp_port,
+    smtp_secure = smtp_secure,
+    smtp_username = smtp_username,
+    smtp_password = smtp_password
 })
 
 -- Insert attachment record

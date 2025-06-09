@@ -75,7 +75,7 @@
 		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
 		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'email';
 		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'text';
-		$apps[$x]['default_settings'][$y]['default_setting_value'] = '';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '2700';
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Optional default email address for sending call recording transcriptions.';
 
@@ -84,6 +84,6 @@
 		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
 		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'max_transcription_time';
 		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'numeric';
-		$apps[$x]['default_settings'][$y]['default_setting_value'] = '45';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '60';
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Max recording length in seconds that will be transcribed.';
