@@ -84,6 +84,15 @@
 		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
 		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'max_transcription_time';
 		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'numeric';
-		$apps[$x]['default_settings'][$y]['default_setting_value'] = '60';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '2700';
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Max recording length in seconds that will be transcribed.';
+
+		$y++;
+		$apps[$x]['default_settings'][$y]['default_setting_uuid'] = '76d099ea-24b4-4720-bbb8-1962f3085947';
+		$apps[$x]['default_settings'][$y]['default_setting_category'] = 'call_recordings';
+		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = 'min_transcription_time';
+		$apps[$x]['default_settings'][$y]['default_setting_name'] = 'numeric';
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = '60';
+		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = 'true';
+		$apps[$x]['default_settings'][$y]['default_setting_description'] = 'Min recording length in seconds that will be transcribed.';
