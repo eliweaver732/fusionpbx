@@ -41,38 +41,30 @@
 	}
 
 //define the process id file
-	$pid_file = "/var/run/fusionpbx/email_send".".".$email_queue_uuid.".pid";
+	$pid_file = '/var/run/fusionpbx/email_send.'.$email_queue_uuid.'.pid';
 	//echo "pid_file: ".$pid_file."\n";
 
 //function to check if the process exists
-	function process_exists($file = false) {
-
-		//set the default exists to false
-		$exists = false;
-
-		//check to see if the process is running
-		if (file_exists($file)) {
-			$pid = file_get_contents($file);
-			if (function_exists('posix_getsid')) {
-				//check if the process is running
-				$pid = posix_getsid($pid);
-				if ($pid === null || $pid === 0) {
-					//process is not running
-					$exists = false;
-				}
-				else {
-					//process is running
-					$exists = true;
-				}
-			}
-			else {
-				//file exists assume the pid is running
-				$exists = true;
-			}
+	function process_exists($file = '') {
+		//check if the file exists return false if not found
+		if (!file_exists($file)) {
+			return false;
 		}
 
-		//return the result
-		return $exists;
+		//check to see if the process id is valid
+		$pid = file_get_contents($file);
+		if (filter_var($pid, FILTER_VALIDATE_INT) === false) {
+			return false;
+		}
+
+		//check if the process is running
+		exec('ps -p '.$pid, $output);
+		if (count($output) > 1) {
+			return true;
+		}
+		else {
+			return false;
+		}
 	}
 
 //check to see if the process exists
@@ -145,6 +137,7 @@
 		$email_status = $row["email_status"];
 		$email_retry_count = $row["email_retry_count"];
 		$email_uuid = $row["email_uuid"];
+		$email_job_type = $row["email_job_type"] ?? 'voicemail';
 		//$email_action_before = $row["email_action_before"];
 		$email_action_after = $row["email_action_after"];
 	}
@@ -164,32 +157,36 @@
 	}
 
 //get the voicemail details
-	$sql = "select * from v_voicemails ";
-	$sql .= "where voicemail_uuid in ( ";
-	$sql .= "	select voicemail_uuid from v_voicemail_messages	";
-	$sql .= "	where voicemail_message_uuid = :voicemail_message_uuid ";
-	$sql .= ") ";
-	$parameters['voicemail_message_uuid'] = $email_uuid;
-	$row = $database->select($sql, $parameters, 'row');
-	if (is_array($row)) {
-		//$domain_uuid = $row["domain_uuid"];
-		//$voicemail_uuid = $row["voicemail_uuid"];
-		$voicemail_id = $row["voicemail_id"];
-		//$voicemail_password = $row["voicemail_password"];
-		//$greeting_id = $row["greeting_id"];
-		//$voicemail_alternate_greet_id = $row["voicemail_alternate_greet_id"];
-		//$voicemail_mail_to = $row["voicemail_mail_to"];
-		//$voicemail_sms_to  = $row["voicemail_sms_to "];
-		$voicemail_transcription_enabled = $row["voicemail_transcription_enabled"];
-		//$voicemail_attach_file = $row["voicemail_attach_file"];
-		//$voicemail_file = $row["voicemail_file"];
-		//$voicemail_local_after_email = $row["voicemail_local_after_email"];
-		//$voicemail_enabled = $row["voicemail_enabled"];
-		//$voicemail_description = $row["voicemail_description"];
-		//$voicemail_name_base64 = $row["voicemail_name_base64"];
-		//$voicemail_tutorial = $row["voicemail_tutorial"];
-		if (gettype($voicemail_transcription_enabled) === 'string') {
-			$voicemail_transcription_enabled = ($voicemail_transcription_enabled === 'true') ? true : false;
+	if ($email_job_type == '' || $email_job_type == 'voicemail') {
+		// voicemail job (current behavior)
+		$sql = "select * from v_voicemails ";
+		$sql .= "where voicemail_uuid in ( ";
+		$sql .= "	select voicemail_uuid from v_voicemail_messages	";
+		$sql .= "	where voicemail_message_uuid = :voicemail_message_uuid ";
+		$sql .= ") ";
+		$parameters['voicemail_message_uuid'] = $email_uuid;
+		$row = $database->select($sql, $parameters, 'row');
+		if (is_array($row)) {
+			$voicemail_id = $row["voicemail_id"];
+			$voicemail_transcription_enabled = $row["voicemail_transcription_enabled"];
+			if (gettype($voicemail_transcription_enabled) === 'string') {
+				$voicemail_transcription_enabled = ($voicemail_transcription_enabled === 'true') ? true : false;
+			}
+		}
+		unset($parameters);
+	}
+	elseif ($email_job_type == 'call_recording') {
+		// call recording job
+		$transcribe_enabled = false;
+		$voicemail_transcription_enabled = false;
+
+		// Check if transcription is enabled in settings for call_recordings category
+		if ($settings->exists('call_recordings', 'transcription_enabled')) {
+			$transcribe_enabled = $settings->get('call_recordings', 'transcription_enabled', false);
+			if (gettype($transcribe_enabled) === 'string') {
+				$transcribe_enabled = ($transcribe_enabled === 'true') ? true : false;
+			}
+			$voicemail_transcription_enabled = $transcribe_enabled;
 		}
 	}
 	unset($parameters);
@@ -231,40 +228,50 @@
 			}
 
 			if ($transcribe_enabled && isset($voicemail_transcription_enabled) && $voicemail_transcription_enabled) {
-				//debug message
-				echo "transcribe enabled: true\n";
+				echo "transcribe enabled: voicemail\n";
 
-				//if email transcription has a value no need to transcribe again so run the transcription when the value is empty
 				if (empty($email_transcription)) {
-					//add the settings object
 					$transcribe_engine = $settings->get('transcribe', 'engine', '');
-
-					//add the transcribe object and get the languages arrays
 					if (!empty($transcribe_engine) && class_exists('transcribe_' . $transcribe_engine)) {
 						$transcribe = new transcribe($settings);
-
-						//transcribe the voicemail recording
 						$transcribe->audio_path = $email_attachment_path;
 						$transcribe->audio_filename = $email_attachment_name;
 						$transcribe->audio_mime_type = $email_attachment_mime_type;
 						$transcribe->audio_string = (!empty($field['email_attachment_base64'])) ? base64_decode($field['email_attachment_base64']) : '';
 						$transcribe_message = $transcribe->transcribe();
 					}
-				}
-				else {
+				} else {
 					$transcribe_message = $email_transcription;
 				}
 
-				echo "transcribe message: ".$transcribe_message."\n";
+				echo "transcribe message (voicemail): " . $transcribe_message . "\n";
+				$email_body = str_replace('${message_text}', $transcribe_message, $email_body);
 
-				//prepare the email body
+			}
+			elseif ($email_job_type === 'call_recording' && $transcribe_enabled) {
+				echo "transcribe enabled for call_recording\n";
+
+				if (empty($email_transcription)) {
+					$transcribe_engine = $settings->get('transcribe', 'engine', '');
+					if (!empty($transcribe_engine) && class_exists('transcribe_' . $transcribe_engine)) {
+						$transcribe = new transcribe($settings);
+						$transcribe->audio_path = $email_attachment_path;
+						$transcribe->audio_filename = $email_attachment_name;
+						$transcribe->audio_mime_type = $email_attachment_mime_type;
+						$transcribe->audio_string = (!empty($field['email_attachment_base64'])) ? base64_decode($field['email_attachment_base64']) : '';
+						$transcribe_message = $transcribe->transcribe();
+					}
+				} else {
+					$transcribe_message = $email_transcription;
+				}
+
+				echo "transcribe message (call_recording): " . $transcribe_message . "\n";
 				$email_body = str_replace('${message_text}', $transcribe_message, $email_body);
 			}
 			else {
-				//prepare the email body
+				// neither voicemail nor call_recording — remove placeholder
 				$email_body = str_replace('${message_text}', '', $email_body);
 			}
-
 			//base64 encode the file
 			//$file_contents = base64_encode(file_get_contents($email_attachment_path.'/'.$email_attachment_name));
 
@@ -297,14 +304,22 @@
 	//echo "Body: ".$email_body."\n";
 
 //update the message transcription
-	if (isset($voicemail_transcription_enabled) && $voicemail_transcription_enabled && isset($transcribe_message)) {
+	if ($email_job_type === 'voicemail' && isset($voicemail_transcription_enabled) && $voicemail_transcription_enabled && isset($transcribe_message)) {
 		$sql = "update v_voicemail_messages ";
 		$sql .= "set message_transcription = :message_transcription ";
 		$sql .= "where voicemail_message_uuid = :voicemail_message_uuid; ";
 		$parameters['voicemail_message_uuid'] = $email_uuid;
 		$parameters['message_transcription'] = $transcribe_message;
-		//echo $sql."\n";
-		//print_r($parameters);
+		$database->execute($sql, $parameters);
+		unset($parameters);
+	}
+
+	if ($email_job_type === 'call_recording' && isset($transcribe_message)) {
+		$sql = "update v_xml_cdr ";
+		$sql .= "set record_transcription = :record_transcription ";
+		$sql .= "where uuid = :uuid; ";
+		$parameters['uuid'] = $email_uuid;  // assuming $email_uuid is the recording UUID
+		$parameters['record_transcription'] = $transcribe_message;
 		$database->execute($sql, $parameters);
 		unset($parameters);
 	}

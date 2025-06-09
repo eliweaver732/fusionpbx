@@ -176,6 +176,10 @@
 		$apps[$x]['db'][$y]['fields'][$z]['type'] = 'text';
 		//$apps[$x]['db'][$y]['fields'][$z]['search_by'] = 'true';
 		$z++;
+		$apps[$x]['db'][$y]['fields'][$z]['name'] = 'email_job_type';
+		$apps[$x]['db'][$y]['fields'][$z]['type'] = 'text';
+		$apps[$x]['db'][$y]['fields'][$z]['description']['en-us'] = 'The type of job: voicemail or call_recording.';
+		$z++;
 		$apps[$x]['db'][$y]['fields'][$z]['name'] = "insert_date";
 		$apps[$x]['db'][$y]['fields'][$z]['type']['pgsql'] = 'timestamptz';
 		$apps[$x]['db'][$y]['fields'][$z]['type']['sqlite'] = 'date';
