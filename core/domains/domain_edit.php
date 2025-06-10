@@ -49,6 +49,35 @@
 	$domain_name = '';
 	$domain_description = '';
 
+	$main_domains = [];
+	$sql = "
+        SELECT default_setting_subcategory AS sub,
+               default_setting_value       AS val
+        FROM   v_default_settings
+        WHERE  default_setting_category    = 'domain'
+          AND  default_setting_subcategory IN
+               ('domain_selector_active','domain_name')
+          AND  default_setting_enabled     = 'true'";
+    $rows = $database->select($sql, null, 'all');
+    foreach ($rows as $row) {
+        if ($row['sub'] === 'domain_selector_active') {
+            $domain_selector_active = (strtolower($row['val']) === 'true');
+        }
+        elseif ($row['sub'] === 'domain_name') {
+            $main_domains = array_filter(
+                array_map('trim', explode(',', $row['val']))
+            );
+        }
+    }
+    unset($sql, $rows);
+
+	// This is for test
+	// $domain_selector_active = true;   
+	// $main_domains = [
+	// 	'pbx-east.testnet',
+	// 	'pbx-west.testnet'
+	// ];
+
 //action add or update
 	if (!permission_exists('domain_add') || (file_exists($_SERVER["PROJECT_ROOT"]."/app/domains/") && !permission_exists('domain_all'))) {
 		//admin editing own domain/settings
@@ -666,9 +695,48 @@
 	echo "	".$text['label-name']."\n";
 	echo "</td>\n";
 	echo "<td class='vtable' align='left'>\n";
-	echo "	<input class='formfld' type='text' name='domain_name' maxlength='255' value=\"".escape($domain_name)."\">\n";
-	echo "<br />\n";
-	echo $text['description-name']."\n";
+	
+	if ($action == 'add' && count($main_domains) > 0) {
+		// sub-domain textbox
+		echo "	<input class='formfld' id='sub_domain' name='sub_domain' ";
+		echo "placeholder='".escape($text['label-sub_domain'])."' ";
+		echo "maxlength='255' style='width: 150px;'>\n";
+
+		// main-domain dropdown
+		echo "	<select class='formfld' id='main_domain' name='main_domain' style='width: auto;'>\n";
+		foreach ($main_domains as $md) {
+			echo "		<option value='".escape($md)."'>".escape($md)."</option>\n";
+		}
+		echo "	</select>\n";
+
+		// hidden field for legacy save logic
+		echo "	<input type='hidden' id='domain_name' name='domain_name' value=''>\n";
+
+		// JS that welds sub + main → hidden field
+		echo "	<script>\n";
+		echo "	 function bakeDomain(){\n";
+		echo "	  var sub=document.getElementById('sub_domain').value.trim();\n";
+		echo "	  var main=document.getElementById('main_domain').value.trim();\n";
+		echo "	  document.getElementById('domain_name').value=sub?sub+'.'+main:main;\n";
+		echo "	 }\n";
+		echo "	 document.getElementById('sub_domain').addEventListener('keyup',bakeDomain);\n";
+		echo "	 document.getElementById('main_domain').addEventListener('change',bakeDomain);\n";
+		echo "	 document.getElementById('frm').addEventListener('submit',bakeDomain);\n";
+		echo "	</script>\n";
+
+		echo "	<br />\n";
+		echo $text['description-name']."\n";
+
+	}
+	// ── otherwise keep original single input (update mode or selector off)
+	else {
+
+		echo "	<input class='formfld' type='text' name='domain_name' ";
+		echo "maxlength='255' value=\"".escape($domain_name)."\">\n";
+		echo "	<br />\n";
+		echo $text['description-name']."\n";
+
+	}
 	echo "</td>\n";
 	echo "</tr>\n";
 
