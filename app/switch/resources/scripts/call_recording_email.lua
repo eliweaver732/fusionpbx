@@ -100,7 +100,7 @@ local function get_wav_duration(filename)
   local command = string.format("sox \"%s\" -n stat 2>&1 | grep \"Length (seconds):\"", filename)
   local file = io.popen(command, "r")
   if not file then
-    freeswitch.consoleLog("ERR", "Error: Could not execute SoX command.\n")  -- Using freeswitch.consoleLog for error messages
+    freeswitch.consoleLog("ERR", "[call_recording_email] Error: Could not execute SoX command.\n")  -- Using freeswitch.consoleLog for error messages
     return nil
   end
 
@@ -112,7 +112,7 @@ local function get_wav_duration(filename)
   if duration_str then
     return tonumber(duration_str)
   else
-    freeswitch.consoleLog("ERR", string.format("Error: Could not find duration for '%s'.\n", filename))  -- Using freeswitch.consoleLog
+    freeswitch.consoleLog("ERR", string.format("[call_recording_email] Error: Could not find duration for '%s'.\n", filename))  -- Using freeswitch.consoleLog
     return nil
   end
 end
