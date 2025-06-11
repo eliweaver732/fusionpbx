@@ -696,7 +696,7 @@
 	echo "</td>\n";
 	echo "<td class='vtable' align='left'>\n";
 	
-	if ($action == 'add' && count($main_domains) > 0) {
+
 		// sub-domain textbox
 		echo "	<input class='formfld' id='sub_domain' type='text' name='sub_domain' ";
 		echo "placeholder='".escape($text['label-sub_domain'])."' ";
