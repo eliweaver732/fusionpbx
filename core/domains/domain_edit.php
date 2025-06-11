@@ -698,7 +698,7 @@
 	
 	if ($action == 'add' && count($main_domains) > 0) {
 		// sub-domain textbox
-		echo "	<input class='formfld' id='sub_domain' name='sub_domain' ";
+		echo "	<input class='formfld' id='sub_domain' type='text' name='sub_domain' ";
 		echo "placeholder='".escape($text['label-sub_domain'])."' ";
 		echo "maxlength='255' style='width: 150px;'>\n";
 
