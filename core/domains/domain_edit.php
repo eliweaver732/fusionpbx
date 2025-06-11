@@ -700,7 +700,7 @@
 		// sub-domain textbox
 		echo "	<input class='formfld' id='sub_domain' type='text' name='sub_domain' ";
 		echo "placeholder='".escape($text['label-sub_domain'])."' ";
-		echo "maxlength='255' style='width: 150px;'>\n";
+		echo "maxlength='255'>\n";
 
 		// main-domain dropdown
 		echo "	<select class='formfld' id='main_domain' name='main_domain' style='width: auto;'>\n";
