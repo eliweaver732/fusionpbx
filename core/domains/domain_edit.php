@@ -50,26 +50,24 @@
 	$domain_description = '';
 
 	$main_domains = [];
-	$sql = "
-        SELECT default_setting_subcategory AS sub,
-               default_setting_value       AS val
-        FROM   v_default_settings
-        WHERE  default_setting_category    = 'domain'
-          AND  default_setting_subcategory IN
-               ('domain_selector_active','domain_name')
-          AND  default_setting_enabled     = 'true'";
-    $rows = $database->select($sql, null, 'all');
-    foreach ($rows as $row) {
-        if ($row['sub'] === 'domain_selector_active') {
-            $domain_selector_active = (strtolower($row['val']) === 'true');
-        }
-        elseif ($row['sub'] === 'domain_name') {
-            $main_domains = array_filter(
-                array_map('trim', explode(',', $row['val']))
-            );
-        }
-    }
-    unset($sql, $rows);
+	$sql  = "SELECT domain_name FROM v_domains WHERE domain_enabled = 't'";
+	$rows = $database->select($sql, null, 'all');
+
+	$auto_roots = [];
+	foreach ($rows as $row) {
+		$dn = trim($row['domain_name']);
+
+		// skip pure IPv4 like 88.99.162.245
+		if (preg_match('/^\\d{1,3}(?:\\.\\d{1,3}){3}$/', $dn)) continue;
+
+		$parts = explode('.', $dn);
+		$cnt   = count($parts);
+		if ($cnt >= 2) {
+			$auto_roots[] = $parts[$cnt-2] . '.' . $parts[$cnt-1];  // last two labels
+		}
+	}
+	$main_domains = array_unique(array_merge($main_domains, $auto_roots), SORT_REGULAR);
+	unset($sql, $rows, $auto_roots);
 
 	// This is for test
 	// $domain_selector_active = true;   
@@ -696,39 +694,44 @@
 	echo "</td>\n";
 	echo "<td class='vtable' align='left'>\n";
 	
-	if ($action == 'add' && count($main_domains) > 0) {
-		
-		// sub-domain textbox
-		echo "	<input class='formfld' id='sub_domain' type='text' name='sub_domain' ";
-		echo "placeholder='".escape($text['label-sub_domain'])."' ";
-		echo "maxlength='255'>\n";
+if ($action == 'add' && count($main_domains) > 0) {
 
-		// main-domain dropdown
-		echo "	<select class='formfld' id='main_domain' name='main_domain' style='width: auto;'>\n";
-		foreach ($main_domains as $md) {
-			echo "		<option value='".escape($md)."'>".escape($md)."</option>\n";
-		}
-		echo "	</select>\n";
+	// sub-domain  /  full-domain textbox
+	echo "	<input class='formfld' id='sub_domain' type='text' name='sub_domain' ";
+	echo "placeholder='".escape($text['label-sub_domain'])."' maxlength='255'>\n";
 
-		// hidden field for legacy save logic
-		echo "	<input type='hidden' id='domain_name' name='domain_name' value=''>\n";
-
-		// JS that welds sub + main → hidden field
-		echo "	<script>\n";
-		echo "	 function bakeDomain(){\n";
-		echo "	  var sub=document.getElementById('sub_domain').value.trim();\n";
-		echo "	  var main=document.getElementById('main_domain').value.trim();\n";
-		echo "	  document.getElementById('domain_name').value=sub?sub+'.'+main:main;\n";
-		echo "	 }\n";
-		echo "	 document.getElementById('sub_domain').addEventListener('keyup',bakeDomain);\n";
-		echo "	 document.getElementById('main_domain').addEventListener('change',bakeDomain);\n";
-		echo "	 document.getElementById('frm').addEventListener('submit',bakeDomain);\n";
-		echo "	</script>\n";
-
-		echo "	<br />\n";
-		echo $text['description-name']."\n";
-
+	// main-domain dropdown  (first option = manual)
+	echo "	<select class='formfld' id='main_domain' name='main_domain' style='width: auto;'>\n";
+	echo "		<option value=''>-- manual entry --</option>\n";   // <— new
+	foreach ($main_domains as $md) {
+		echo "		<option value='".escape($md)."'>".escape($md)."</option>\n";
 	}
+	echo "	</select>\n";
+
+	// hidden field the legacy save code expects
+	echo "	<input type='hidden' id='domain_name' name='domain_name' value=''>\n";
+
+	// JS: build FQDN or pass-through
+	echo "	<script>\n";
+	echo "	 function bakeDomain(){\n";
+	echo "	  var sub  = document.getElementById('sub_domain').value.trim();\n";
+	echo "	  var main = document.getElementById('main_domain').value.trim();\n";
+	echo "	  if (main === '') {\n";
+	echo "	   // manual mode – textbox already holds full domain\n";
+	echo "	   document.getElementById('domain_name').value = sub;\n";
+	echo "	  }\n";
+	echo "	  else {\n";
+	echo "	   document.getElementById('domain_name').value = sub ? sub + '.' + main : main;\n";
+	echo "	  }\n";
+	echo "	 }\n";
+	echo "	 document.getElementById('sub_domain').addEventListener('keyup',  bakeDomain);\n";
+	echo "	 document.getElementById('main_domain').addEventListener('change', bakeDomain);\n";
+	echo "	 document.getElementById('frm').addEventListener('submit',         bakeDomain);\n";
+	echo "	</script>\n";
+
+	echo "	<br />\n";
+	echo escape($text['description-name'])."\n";
+}
 	// ── otherwise keep original single input (update mode or selector off)
 	else {
 
