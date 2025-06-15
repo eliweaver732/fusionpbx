@@ -1,4 +1,5 @@
-local dbh = require "resources.functions.database_handle"
+local Database = require "resources.functions.database"
+local dbh      = Database.new('system')
 local log = require "resources.functions.log".roboblock
 local api = freeswitch.API()
 local console = freeswitch.consoleLog
@@ -74,27 +75,32 @@ end
 -- CAPTCHA Phase
 local function run_captcha()
   local pin = tostring(math.random(100, 999))
-  say("info", "Starting CAPTCHA; PIN=".. pin)
+  say("info", "Starting CAPTCHA; PIN=" .. pin)
+
   session:answer()
   session:sleep(1000)
-
-  session:streamFile("roboblock/Roboblocker_captcha_greeting.wav")
-  -- Speak PIN once before beep
-  for i = 1, 3 do session:streamFile("digits/" .. pin:sub(i,i) .. ".wav") end
-  session:streamFile("tone_stream://%(1000, 0, 640)")
+  session:streamFile("roboblock/8000/Roboblocker_captcha_greeting.wav")
 
   -- up to 3 tries
   for attempt = 1, 3 do
-    say("info", "CAPTCHA attempt ".. attempt)
-    for i = 1, 3 do session:streamFile("digits/" .. pin:sub(i,i) .. ".wav") end
-    local input = session:getDigits(3, "", 5000)
-    say("info", "Caller entered '".. (input or "") .."'")
+    say("info", "CAPTCHA attempt " .. attempt)
+
+    for i = 1, 3 do
+      session:streamFile("digits/" .. pin:sub(i, i) .. ".wav")
+    end
+
+    session:streamFile("tone_stream://%(1000,0,640)")
+
+    local input = session:getDigits(3, "", 10000)
+    say("info", "caller entered '" .. tostring(input) .. "'")
+
     if not input or input == "" then
       return false, "hangup"
     elseif input == pin then
-      return true, nil
+      return true, 
     end
   end
+
   return false, "fail"
 end
 
