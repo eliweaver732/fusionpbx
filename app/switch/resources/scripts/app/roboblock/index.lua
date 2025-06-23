@@ -1,153 +1,103 @@
+-- tts.lua
+
 local Database = require "resources.functions.database"
-local dbh      = Database.new('system')
-local log = require "resources.functions.log".roboblock
+
+local function file_exists(path)
+    local f = io.open(path, "rb")
+    if f then f:close() return true else return false end
+end
+
+local function ensure_directory(path)
+    os.execute("mkdir -p " .. path)
+end
+
+-- Inputs
+local domain_uuid     = session:getVariable("domain_uuid")
+local text            = argv[1] or "No text provided."
+local save_flag       = argv[2] == "true"
+local custom_filename = argv[3] or nil
+
+-- DB connection
+local dbh = Database.new('system')
+
+-- Fetch TTS settings
+local settings = {}
+dbh:query([[SELECT tts_setting_uuid, engine_type, api_key, language, voice, speed, audio_path
+             FROM v_tts_settings
+             WHERE domain_uuid = :domain_uuid
+             LIMIT 1]],
+             {domain_uuid = domain_uuid},
+             function(row)
+                 settings = row
+             end)
+
+-- Apply defaults
+settings.engine_type = settings.engine_type or "espeak"
+settings.language    = settings.language or "en-us"
+settings.voice       = settings.voice or "default"
+settings.speed       = tonumber(settings.speed) or 140
+settings.audio_path  = settings.audio_path or "/tmp/tts_audio/"
+
+ensure_directory(settings.audio_path)
+
+-- Create UUID using FreeSWITCH API
 local api = freeswitch.API()
-local console = freeswitch.consoleLog
+local unique_id = api:execute("create_uuid")
 
-math.randomseed(os.time())
+-- Determine filename
+local filename = custom_filename and (custom_filename .. ".wav") or (unique_id .. ".wav")
+local audio_file = settings.audio_path .. filename
 
--- helper to print once per call with consistent prefix
-local function say(level, msg)
-  console(level, "[roboblock] " .. msg .. "\n")
-end
+-- Check for cached file
+local cached = file_exists(audio_file)
 
--- Get caller ID and domain UUID from session
-local function get_call_info()
-  local cid         = session:getVariable("caller_id_number") or ""
-  local domain_uuid = session:getVariable("domain_uuid")      or ""
-  say("info", "Incoming call from <".. cid ..">  domain=".. domain_uuid)
-  if cid == "" then return nil, nil end
-  return cid, domain_uuid
-end
+if not cached then
+    freeswitch.consoleLog("NOTICE", "[TTS] Generating audio via: " .. settings.engine_type .. "\n")
 
--- Create or fetch caller record from DB
-local function get_or_create_caller(caller_id, domain_uuid)
-  say("info", "Looking up trust score for ".. caller_id)
-  local sql_select = [[
-    SELECT uuid, trust_percent, times_blocked, times_allowed
-    FROM v_roboblock WHERE caller_id_number = :caller_id_number
-  ]]
-  local row = dbh:first_row(sql_select, {caller_id_number = caller_id})
-
-  if row then
-    say("info", ("Found record: trust=%s blocked=%s allowed=%s"):
-        format(row.trust_percent, row.times_blocked, row.times_allowed))
-    return tonumber(row.trust_percent), tonumber(row.times_blocked), tonumber(row.times_allowed)
-  else
-    say("info", "No record found; inserting default trust=50")
-    local new_uuid   = api:execute("create_uuid")
-    local sql_insert = [[
-      INSERT INTO v_roboblock (uuid, domain_uuid, caller_id_number,
-                               trust_percent, times_blocked, times_allowed)
-      VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0)
-    ]]
-    dbh:query(sql_insert, {
-      uuid           = new_uuid,
-      domain_uuid    = domain_uuid,
-      caller_id_number = caller_id
-    })
-    return 50, 0, 0
-  end
-end
-
--- Update caller record
-local function update_caller(caller_id, trust, blocked, allowed)
-  if trust < 0   then trust = 0   end
-  if trust > 100 then trust = 100 end
-  say("info", ("Updating %s  trust=%d  blocked=%d  allowed=%d"):
-      format(caller_id, trust, blocked, allowed))
-
-  local sql_update = [[
-    UPDATE v_roboblock
-       SET trust_percent = :trust,
-           times_blocked = :blocked,
-           times_allowed = :allowed
-     WHERE caller_id_number = :caller_id_number
-  ]]
-  dbh:query(sql_update, {
-    trust              = trust,
-    blocked            = blocked,
-    allowed            = allowed,
-    caller_id_number   = caller_id
-  })
-end
-
--- CAPTCHA Phase
-local function run_captcha()
-  local pin = tostring(math.random(100, 999))
-  say("info", "Starting CAPTCHA; PIN=" .. pin)
-
-  session:answer()
-  session:sleep(1000)
-  session:streamFile("roboblock/8000/Roboblocker_captcha_greeting.wav")
-
-  -- up to 3 tries
-  for attempt = 1, 3 do
-    say("info", "CAPTCHA attempt " .. attempt)
-
-    for i = 1, 3 do
-      session:streamFile("digits/" .. pin:sub(i, i) .. ".wav")
+    if settings.engine_type == "espeak" then
+        local cmd = string.format('espeak -v %s -s %d -w "%s" "%s"',
+            settings.language, settings.speed, audio_file, text)
+        os.execute(cmd)
+    elseif settings.engine_type == "aws" then
+        freeswitch.consoleLog("ERR", "[TTS] AWS engine not implemented yet.\n")
+        return
+    elseif settings.engine_type == "google" then
+        freeswitch.consoleLog("ERR", "[TTS] Google engine not implemented yet.\n")
+        return
+    elseif settings.engine_type == "azure" then
+        freeswitch.consoleLog("ERR", "[TTS] Azure engine not implemented yet.\n")
+        return
+    else
+        freeswitch.consoleLog("ERR", "[TTS] Unsupported engine: " .. tostring(settings.engine_type) .. "\n")
+        return
     end
 
-    session:streamFile("tone_stream://%(1000,0,640)")
-
-    local input = session:getDigits(3, "", 10000)
-    say("info", "caller entered '" .. tostring(input) .. "'")
-
-    if not input or input == "" then
-      return false, "hangup"
-    elseif input == pin then
-      return true, 
+    if save_flag then
+        -- Save to DB cache
+        dbh:query([[INSERT INTO v_tts_audio_cache (tts_audio_uuid, tts_setting_uuid, text_hash, audio_file)
+                    VALUES (:uuid, :tts_setting_uuid, :text_hash, :audio_file)]],
+                  {
+                    uuid = unique_id,
+                    tts_setting_uuid = settings.tts_setting_uuid,
+                    text_hash = custom_filename or unique_id,
+                    audio_file = audio_file
+                  })
     end
-  end
-
-  return false, "fail"
-end
-
--- Handle high trust caller
-local function allow_call(caller_id, trust, blocked, allowed)
-  say("info", "Trust > 80 → allowing call")
-  allowed = allowed + 1
-  update_caller(caller_id, trust, blocked, allowed)
-end
-
--- Handle low trust caller
-local function challenge_call(caller_id, trust, blocked, allowed)
-  say("info", "Trust <= 80 → challenging with CAPTCHA")
-  local success, reason = run_captcha()
-
-  if success then
-    say("info", "CAPTCHA passed")
-    allowed = allowed + 1
-    if trust < 100 then trust = math.min(100, trust + 20) end
-  else
-    say("info", "CAPTCHA failed (".. reason ..")")
-    blocked = blocked + 1
-    if reason == "hangup" then
-      trust = trust - (5 * blocked)
-    elseif reason == "fail" then
-      trust = trust - 15
+else
+    freeswitch.consoleLog("NOTICE", "[TTS] Using cached file: " .. audio_file .. "\n")
+    if save_flag then
+        dbh:query("UPDATE v_tts_audio_cache SET date_accessed = NOW() WHERE text_hash = :hash", {
+            hash = custom_filename or unique_id
+        })
     end
-  end
-  update_caller(caller_id, trust, blocked, allowed)
 end
 
--- Main logic
-local function main()
-  say("info", "=== roboblock.lua START ===")
-  local caller_id, domain_uuid = get_call_info()
-  if not caller_id then
-    say("notice", "No caller_id_number; exiting")
-    return
-  end
+-- Playback
+session:streamFile(audio_file)
 
-  local trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  if trust > 80 then
-    allow_call(caller_id, trust, blocked, allowed)
-  else
-    challenge_call(caller_id, trust, blocked, allowed)
-  end
-  say("info", "=== roboblock.lua END ===")
+-- Remove file if not saving
+if not save_flag and file_exists(audio_file) then
+    os.remove(audio_file)
 end
 
-main()
+if dbh then dbh:release() end
