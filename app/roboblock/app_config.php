@@ -27,12 +27,20 @@ $apps[$x]['permissions'][$y]['groups'][] = "superadmin";
 //default settings
 $y = 0;
 $apps[$x]['default_settings'][$y]['default_setting_uuid'] = "be4d17e4-8dcb-48ea-8197-7012c8bbbb6b";
-$apps[$x]['default_settings'][$y]['default_setting_category'] = "RoboBlock";
+$apps[$x]['default_settings'][$y]['default_setting_category'] = "roboblock";
 $apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "greeting_file";
 $apps[$x]['default_settings'][$y]['default_setting_name'] = "string";
 $apps[$x]['default_settings'][$y]['default_setting_value'] = "";
 $apps[$x]['default_settings'][$y]['default_setting_enabled'] = "false";
 $apps[$x]['default_settings'][$y]['default_setting_description']['en-us'] = "Greeting WAV file to play during CAPTCHA phase.";
+$y = 1;
+$apps[$x]['default_settings'][$y]['default_setting_uuid'] = "be4417a4-8dcb-48ea-8197-7012d82bbb6b";
+$apps[$x]['default_settings'][$y]['default_setting_category'] = "roboblock";
+$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "is_global";
+$apps[$x]['default_settings'][$y]['default_setting_name'] = "boolean";
+$apps[$x]['default_settings'][$y]['default_setting_value'] = "true";
+$apps[$x]['default_settings'][$y]['default_setting_enabled'] = "false";
+$apps[$x]['default_settings'][$y]['default_setting_description']['en-us'] = "Whether roboblock is just for this domain or global;";
 
 //schema
 $y = 0;
