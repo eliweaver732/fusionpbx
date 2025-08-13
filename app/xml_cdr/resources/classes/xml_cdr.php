@@ -515,14 +515,14 @@ if (!class_exists('xml_cdr')) {
 							//ring group or multi destination bridge statement
 							$missed_call = 'false';
 						}
+						if (isset($xml->variables->billsec) && $xml->variables->billsec > 0) {
+							//answered call
+							$missed_call = 'false';
+						}
 						if (isset($xml->variables->cc_side) && $xml->variables->cc_side == 'member'
 							&& isset($xml->variables->cc_cause) && $xml->variables->cc_cause == 'cancel') {
 							//call center
 							$missed_call = 'true';
-						}
-						if (isset($xml->variables->billsec) && $xml->variables->billsec > 0) {
-							//answered call
-							$missed_call = 'false';
 						}
 						if (isset($xml->variables->destination_number) && substr($xml->variables->destination_number, 0, 3) == '*99') {
 							//voicemail
@@ -1446,7 +1446,7 @@ if (!class_exists('xml_cdr')) {
 			unset($x);
 
 			//set the last status to match the call detail record
-			$call_flow_summary[count($call_flow_summary)-1]['destination_status'] = $this->status;
+			$call_flow_summary[count($call_flow_summary ?? [])-1]['destination_status'] = $this->status;
 
 			//return the call flow summary array
 			return $call_flow_summary;
@@ -1519,7 +1519,7 @@ if (!class_exists('xml_cdr')) {
 			}
 		}
 
-		public function moved_to_failed($failed_file) {
+		public function move_to_failed($failed_file) {
 			$xml_cdr_dir = $this->setting->get('switch', 'log', '/var/log/freeswitch').'/xml_cdr';
 			if (!file_exists($xml_cdr_dir.'/failed')) {
 				if (!mkdir($xml_cdr_dir.'/failed', 0660, true)) {
