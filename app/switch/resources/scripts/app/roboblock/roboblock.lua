@@ -63,13 +63,13 @@ local function get_or_create_caller(caller_id, domain_uuid)
     local new_uuid = api:execute("create_uuid")
     if (is_global) then
       local sql_insert = [[
-        INSERT INTO v_roboblock (uuid, caller_id_number, trust_percent, times_blocked, times_allowed)
-        VALUES (:uuid, :caller_id_number, 50, 0, 0)
+        INSERT INTO v_roboblock (uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
+        VALUES (:uuid, :caller_id_number, 50, 0, 0, now())
       ]]
     else
       local sql_insert = [[
-        INSERT INTO v_roboblock (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed)
-        VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0)
+        INSERT INTO v_roboblock (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
+        VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0, now())
       ]]
     end
     dbh:query(sql_insert, {
@@ -91,7 +91,8 @@ local function update_caller(caller_id, trust, blocked, allowed)
       UPDATE v_roboblock
       SET trust_percent = :trust,
           times_blocked = :blocked,
-          times_allowed = :allowed
+          times_allowed = :allowed,
+          update_date = now()
       WHERE caller_id_number = :caller_id_number 
       AND domain_uuid IS NULL
     ]]
@@ -100,7 +101,8 @@ local function update_caller(caller_id, trust, blocked, allowed)
       UPDATE v_roboblock
       SET trust_percent = :trust,
           times_blocked = :blocked,
-          times_allowed = :allowed
+          times_allowed = :allowed,
+          update_date = now()
       WHERE caller_id_number = :caller_id_number 
       AND domain_uuid = :domain_uuid
     ]]
@@ -119,6 +121,12 @@ local function run_captcha()
   session:answer()
   session:sleep(1000)
 
+  --if trust is too low simply hangup
+  if (trust <= 20) then
+    session:hangup()
+    return false, "hangup"
+  end
+
   -- Play the greeting once
   if (greeting_file == nil or string.len(greeting_file) == 0) then
     greeting_file = "roboblock/Roboblocker_captcha_greeting.wav"
@@ -134,7 +142,7 @@ local function run_captcha()
   -- Then play the beep
   session:streamFile("tone_stream://%(1000, 0, 640)")
   
-  local input = session:getDigits(3, "", 5000)
+  local input = session:getDigits(3, "", 10000)
   if not (session:ready()) then
     return false, "hangup"
   elseif (not input or input == "") then
@@ -176,28 +184,88 @@ local function challenge_call(caller_id, trust, blocked, allowed)
   update_caller(caller_id, trust, blocked, allowed)
 end
 
+local function get_phone_number()
+  if (session:ready()) then
+  --flush dtmf digits from the input buffer
+    session:flushDigits();
+  --set phone_number valitity in case of hangup
+    valid_phone_number = "false";
+    dtmf_digits = '';
+    timeouts = 0;
+    dtmf_digits = session:playAndGetDigits(11, 11, 3, 5000, "#", "phrase:voicemail_enter_phone_number", "", "\\d+|\\*");
+
+    if (session:ready()) then
+      if (string.len(dtmf_digits) == 11) then
+        if (string.sub( dtmf_digits, 2, 2 ) ~= "1") then
+          if (string.sub( dtmf_digits, 5, 5 ) ~= "1") then
+            valid_phone_number = "true";
+          end
+        end
+      end
+    end
+      
+    if (valid_phone_number == "true") then 
+      return dtmf_digits;
+    else
+      session:hangup();
+      return
+    end
+  end
+end
+
 --logic starts here
 --arg[2] always overrides session info
 if (arg[2]) then
   if (string.len(arg[2]) == 10 and string.sub(arg[2], 1, 1) ~= "1") then
     caller_id = "1" .. arg[2]
+  elseif (arg[2] ~= nil) then
+    if not (string.len(arg[2]) == 11) then
+      session:hangup()
+      return
+    end
   end
 else
   if (session:ready()) then
     caller_id = get_call_info()
   end
 end
-if (not caller_id or string.len(caller_id) < 10) then return end
-trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
 
+-- USAGE: "roboblock.lua block 1234567890"
+-- soft blocks this number until it verifies again
 if (arg and arg[1] == "block" and arg[2]) then
-  update_caller(arg[2], 50, blocked + 1, allowed)
+  trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
+  update_caller(arg[2], 70, blocked + 1, allowed)
+
+-- USAGE: "roboblock.lua allow 1234567890"
+-- allows this number to call through
 elseif (arg and arg[1] == "allow" and arg[2]) then
+  trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
   update_caller(arg[2], 80, blocked, allowed)
+
+-- USAGE: "roboblock.lua allow"
+-- requests a number to allow through
+elseif (arg and arg[1] == "allow" and not arg[2]) then
+  caller_id = get_phone_number()
+  trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
+  if (string.len(caller_id) > 9) then
+    update_caller(caller_id, 80, blocked, allowed);
+  end
+
+-- USAGE: "roboblock.lua reset 1234567890"
+-- resets a callers trust to 50%
 elseif (arg and arg[1] == "reset" and arg[2]) then
+  trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
   update_caller(arg[2], 50, 0, 0)
+
+elseif (arg and arg[1] == "update") then
+  -- not implemented
+  trust, blocked, allowed = get_or_create_caller(1234567890, domain_uuid)
+
+-- USAGE: "roboblock.lua"
+-- send to here from dialplan to do auth on current caller
 else
   if (session:ready()) then
+    trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
     if trust > 80 then
       allow_call(caller_id, trust, blocked, allowed)
     else

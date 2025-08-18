@@ -30,10 +30,10 @@ $apps[$x]['default_settings'][$y]['default_setting_uuid'] = "be4d17e4-8dcb-48ea-
 $apps[$x]['default_settings'][$y]['default_setting_category'] = "roboblock";
 $apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "greeting_file";
 $apps[$x]['default_settings'][$y]['default_setting_name'] = "string";
-$apps[$x]['default_settings'][$y]['default_setting_value'] = "";
+$apps[$x]['default_settings'][$y]['default_setting_value'] = "roboblock/Roboblocker_captcha_greeting.wav";
 $apps[$x]['default_settings'][$y]['default_setting_enabled'] = "false";
 $apps[$x]['default_settings'][$y]['default_setting_description']['en-us'] = "Greeting WAV file to play during CAPTCHA phase.";
-$y = 1;
+$y++;
 $apps[$x]['default_settings'][$y]['default_setting_uuid'] = "be4417a4-8dcb-48ea-8197-7012d82bbb6b";
 $apps[$x]['default_settings'][$y]['default_setting_category'] = "roboblock";
 $apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "is_global";
@@ -48,7 +48,7 @@ $apps[$x]['db'][$y]['table']['name'] = "v_roboblock";
 $apps[$x]['db'][$y]['table']['parent'] = "";
 
 $z = 0;
-$apps[$x]['db'][$y]['fields'][$z]['name'] = "uuid";
+$apps[$x]['db'][$y]['fields'][$z]['name'] = "roboblock_uuid";
 $apps[$x]['db'][$y]['fields'][$z]['type'] = "uuid";
 $apps[$x]['db'][$y]['fields'][$z]['key']['type'] = "primary";
 $z++;
@@ -67,7 +67,18 @@ $apps[$x]['db'][$y]['fields'][$z]['type'] = "numeric";
 $z++;
 $apps[$x]['db'][$y]['fields'][$z]['name'] = "times_allowed";
 $apps[$x]['db'][$y]['fields'][$z]['type'] = "numeric";
-
+$z++;
+$apps[$x]['db'][$y]['fields'][$z]['name'] = "insert_date";
+$apps[$x]['db'][$y]['fields'][$z]['type']['pgsql'] = 'timestamptz';
+$apps[$x]['db'][$y]['fields'][$z]['type']['sqlite'] = 'date';
+$apps[$x]['db'][$y]['fields'][$z]['type']['mysql'] = 'date';
+$apps[$x]['db'][$y]['fields'][$z]['description']['en-us'] = "";
+$z++;
+$apps[$x]['db'][$y]['fields'][$z]['name'] = "update_date";
+$apps[$x]['db'][$y]['fields'][$z]['type']['pgsql'] = 'timestamptz';
+$apps[$x]['db'][$y]['fields'][$z]['type']['sqlite'] = 'date';
+$apps[$x]['db'][$y]['fields'][$z]['type']['mysql'] = 'date';
+$apps[$x]['db'][$y]['fields'][$z]['description']['en-us'] = "";
 $x++;
 
 ?>
