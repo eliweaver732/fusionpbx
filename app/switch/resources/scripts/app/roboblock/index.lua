@@ -1,22 +1,26 @@
 
 -- roboblock.lua
 -- Path: app/switch/resources/scripts/app/roboblock/roboblock.lua
-
+freeswitch.consoleLog("notice", "roboblock is live!");
 Database = require "resources.functions.database"
-local log = require "resources.functions.log".roboblock
+dbh = Database.new('system');
+freeswitch.consoleLog("notice", "roboblock database setup!");
+log = require "resources.functions.log".roboblock
 local api = freeswitch.API()
 require "resources.functions.settings";
+log.debug("roboblock setup completed!");
 
 domain_uuid = session:getVariable("domain_uuid");
-dbh = Database.new('system');
 settings = settings(domain_uuid);
 is_global = true;
 if (settings['roboblock'] ~= nil) then
   if (settings['roboblock']['is_global']['boolean'] ~= nil) then
     is_global = settings['roboblock']['is_global']['boolean'];
   end
-  if (settings['switch']['roboblock']['greeting_file'] ~= nil) then
-    greeting_file = settings['switch']['roboblock']['greeting_file'];
+  if (settings['switch']['roboblock'] ~= nil) then
+    if (settings['switch']['roboblock']['greeting_file'] ~= nil) then
+      greeting_file = settings['switch']['roboblock']['greeting_file'];
+    end
   end
 end
 
@@ -26,10 +30,10 @@ math.randomseed(os.time())
 local function get_call_info()
   local cid = session:getVariable("caller_id_number") or ""
   if (cid == nil or string.len(cid) < 10) then
-    caller_id_number = string.match(session:getVariable("caller_id"), '<(%d+)>')
+    cid = string.match(session:getVariable("caller_id"), '<(%d+)>')
   end
   if (cid == "" or cid == nil) then return nil end
-  
+
   --add USA country code to 10 digit cid
   if (string.len(cid) == 10 and string.sub(cid, 1, 1) ~= "1") then
     cid = "1" .. cid
@@ -40,35 +44,34 @@ end
 -- Create or fetch caller record from DB
 local function get_or_create_caller(caller_id, domain_uuid)
   if not (is_global) then
-    local sql_select = [[
-      SELECT uuid, trust_percent, times_blocked, times_allowed
+    sql_select = [[
+      SELECT roboblock_uuid, trust_percent, times_blocked, times_allowed
       FROM v_roboblock WHERE caller_id_number = :caller_id_number
       AND domain_uuid = :domain_uuid
     ]]
   else
-    local sql_select = [[
-      SELECT uuid, trust_percent, times_blocked, times_allowed
+    sql_select = [[
+      SELECT roboblock_uuid, trust_percent, times_blocked, times_allowed
       FROM v_roboblock WHERE caller_id_number = :caller_id_number
       AND domain_uuid IS NULL
     ]]
   end
-
+  log.debug(sql_select);
   dbh:query(sql_select, {caller_id_number = caller_id, domain_uuid = domain_uuid}, function(row)
     result = row;
   end);
-
   if result then
     return tonumber(result.trust_percent), tonumber(result.times_blocked), tonumber(result.times_allowed)
   else
     local new_uuid = api:execute("create_uuid")
     if (is_global) then
-      local sql_insert = [[
-        INSERT INTO v_roboblock (uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
+      sql_insert = [[
+        INSERT INTO v_roboblock (roboblock_uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
         VALUES (:uuid, :caller_id_number, 50, 0, 0, now())
       ]]
     else
-      local sql_insert = [[
-        INSERT INTO v_roboblock (uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
+      sql_insert = [[
+        INSERT INTO v_roboblock (roboblock_uuid, domain_uuid, caller_id_number, trust_percent, times_blocked, times_allowed, insert_date)
         VALUES (:uuid, :domain_uuid, :caller_id_number, 50, 0, 0, now())
       ]]
     end
@@ -85,27 +88,30 @@ end
 local function update_caller(caller_id, trust, blocked, allowed)
   if trust < 0 then trust = 0 end
   if trust > 100 then trust = 100 end
+  log.debug("updating caller: " .. caller_id .. " Trust: " .. trust .. " Blocked: " ..  blocked .. " Allowed: " .. allowed);
 
   if (is_global) then
-    local sql_update = [[
+    sql_update = [[
       UPDATE v_roboblock
       SET trust_percent = :trust,
           times_blocked = :blocked,
           times_allowed = :allowed,
           update_date = now()
-      WHERE caller_id_number = :caller_id_number 
+      WHERE caller_id_number = :caller_id_number
       AND domain_uuid IS NULL
     ]]
   else
-    local sql_update = [[
+    sql_update = [[
       UPDATE v_roboblock
       SET trust_percent = :trust,
           times_blocked = :blocked,
           times_allowed = :allowed,
           update_date = now()
-      WHERE caller_id_number = :caller_id_number 
+      WHERE caller_id_number = :caller_id_number
       AND domain_uuid = :domain_uuid
     ]]
+  end
+  log.debug(sql_update);
   dbh:query(sql_update, {
     domain_uuid = domain_uuid,
     trust = trust,
@@ -141,7 +147,7 @@ local function run_captcha()
 
   -- Then play the beep
   session:streamFile("tone_stream://%(1000, 0, 640)")
-  
+
   local input = session:getDigits(3, "", 10000)
   if not (session:ready()) then
     return false, "hangup"
@@ -203,8 +209,8 @@ local function get_phone_number()
         end
       end
     end
-      
-    if (valid_phone_number == "true") then 
+
+    if (valid_phone_number == "true") then
       return dtmf_digits;
     else
       session:hangup();
@@ -214,12 +220,12 @@ local function get_phone_number()
 end
 
 --logic starts here
---arg[2] always overrides session info
-if (arg[2]) then
-  if (string.len(arg[2]) == 10 and string.sub(arg[2], 1, 1) ~= "1") then
-    caller_id = "1" .. arg[2]
-  elseif (arg[2] ~= nil) then
-    if not (string.len(arg[2]) == 11) then
+--argv[2] always overrides session info
+if (argv[2]) then
+  if (string.len(argv[2]) == 10 and string.sub(argv[2], 1, 1) ~= "1") then
+    caller_id = "1" .. argv[2]
+  elseif (argv[2] ~= nil) then
+    if not (string.len(argv[2]) == 11) then
       session:hangup()
       return
     end
@@ -232,20 +238,23 @@ end
 
 -- USAGE: "roboblock.lua block 1234567890"
 -- soft blocks this number until it verifies again
-if (arg and arg[1] == "block" and arg[2]) then
+if (argv and argv[1] == "block" and argv[2]) then
+  log.notice("blocking number " .. argv[2])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(arg[2], 70, blocked + 1, allowed)
+  update_caller(argv[2], 70, blocked + 1, allowed)
 
 -- USAGE: "roboblock.lua allow 1234567890"
 -- allows this number to call through
-elseif (arg and arg[1] == "allow" and arg[2]) then
+elseif (argv and argv[1] == "allow" and argv[2]) then
+	log.notice("allowing number " .. argv[2])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(arg[2], 80, blocked, allowed)
+  update_caller(argv[2], 80, blocked, allowed)
 
 -- USAGE: "roboblock.lua allow"
 -- requests a number to allow through
-elseif (arg and arg[1] == "allow" and not arg[2]) then
+elseif (argv and argv[1] == "allow" and not argv[2]) then
   caller_id = get_phone_number()
+  log.notice("allowing number " .. caller_id)
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
   if (string.len(caller_id) > 9) then
     update_caller(caller_id, 80, blocked, allowed);
@@ -253,22 +262,29 @@ elseif (arg and arg[1] == "allow" and not arg[2]) then
 
 -- USAGE: "roboblock.lua reset 1234567890"
 -- resets a callers trust to 50%
-elseif (arg and arg[1] == "reset" and arg[2]) then
+elseif (argv and argv[1] == "reset" and argv[2]) then
+	log.notice("resetting number " .. argv[2])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(arg[2], 50, 0, 0)
+  update_caller(argv[2], 50, 0, 0)
 
-elseif (arg and arg[1] == "update") then
+elseif (argv and argv[1] == "update") then
   -- not implemented
+  log.notice("update")
   trust, blocked, allowed = get_or_create_caller(1234567890, domain_uuid)
 
 -- USAGE: "roboblock.lua"
 -- send to here from dialplan to do auth on current caller
 else
+  log.debug("main function starting");
   if (session:ready()) then
+  	log.debug("checking caller: " .. caller_id .. " for domain: " .. domain_uuid)
     trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
+    log.notice("trust: " .. trust .. " blocked: " .. blocked .. " allowed: " .. allowed)
     if trust > 80 then
+      log.debug("allowing call");
       allow_call(caller_id, trust, blocked, allowed)
     else
+      log.debug("challenging call");
       challenge_call(caller_id, trust, blocked, allowed)
     end
   end
