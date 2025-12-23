@@ -1,0 +1,5 @@
+<extension name="roboblock" number="" context="${domain_name}" continue="true" app_uuid="a5b31730-d0ae-4395-a891-d4df9a598f11" enabled="false" order="41">
+        <condition field="${call_direction}" expression="^(inbound)$" >
+                <action application="lua" data="app.lua roboblock"/>
+        </condition>
+</extension>
