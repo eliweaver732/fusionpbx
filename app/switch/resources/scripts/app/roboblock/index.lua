@@ -29,9 +29,6 @@ math.randomseed(os.time())
 -- Get caller ID and domain UUID from session
 local function get_call_info()
   local cid = session:getVariable("caller_id_number") or ""
-  if (cid == nil or string.len(cid) < 10) then
-    cid = string.match(session:getVariable("caller_id"), '<(%d+)>')
-  end
   if (cid == "" or cid == nil) then return nil end
 
   --add USA country code to 10 digit cid
@@ -198,9 +195,13 @@ local function get_phone_number()
     valid_phone_number = "false";
     dtmf_digits = '';
     timeouts = 0;
-    dtmf_digits = session:playAndGetDigits(11, 11, 3, 5000, "#", "phrase:voicemail_enter_phone_number", "", "\\d+|\\*");
+    log.debug("asking for number...")
+    dtmf_digits = session:playAndGetDigits(10, 11, 3, 5000, "#", "ivr/ivr-please_enter_the_phone_number.wav", "", "\\d+");
 
     if (session:ready()) then
+      if (string.len(dtmf_digits) == 10) then
+      	dtmf_digits = "1" .. dtmf_digits
+      end
       if (string.len(dtmf_digits) == 11) then
         if (string.sub( dtmf_digits, 2, 2 ) ~= "1") then
           if (string.sub( dtmf_digits, 5, 5 ) ~= "1") then
@@ -220,12 +221,14 @@ local function get_phone_number()
 end
 
 --logic starts here
---argv[2] always overrides session info
-if (argv[2]) then
-  if (string.len(argv[2]) == 10 and string.sub(argv[2], 1, 1) ~= "1") then
-    caller_id = "1" .. argv[2]
-  elseif (argv[2] ~= nil) then
-    if not (string.len(argv[2]) == 11) then
+--argv[3] always overrides session info
+if (argv[3]) then
+  log.debug(argv[2]);
+  log.debug(argv[3]);
+  if (string.len(argv[3]) == 10 and string.sub(argv[3], 1, 1) ~= "1") then
+    caller_id = "1" .. argv[3]
+  elseif (argv[3] ~= nil) then
+    if not (string.len(argv[3]) == 11) then
       session:hangup()
       return
     end
@@ -238,22 +241,22 @@ end
 
 -- USAGE: "roboblock.lua block 1234567890"
 -- soft blocks this number until it verifies again
-if (argv and argv[1] == "block" and argv[2]) then
-  log.notice("blocking number " .. argv[2])
+if (argv and argv[2] == "block" and argv[3]) then
+  log.notice("blocking number " .. argv[3])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(argv[2], 70, blocked + 1, allowed)
+  update_caller(argv[3], 70, blocked + 1, allowed)
 
 -- USAGE: "roboblock.lua allow 1234567890"
 -- allows this number to call through
-elseif (argv and argv[1] == "allow" and argv[2]) then
-	log.notice("allowing number " .. argv[2])
+elseif (argv and argv[2] == "allow" and argv[3]) then
+	log.notice("allowing number " .. argv[3])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(argv[2], 80, blocked, allowed)
+  update_caller(argv[3], 80, blocked, allowed)
 
 -- USAGE: "roboblock.lua allow"
 -- requests a number to allow through
-elseif (argv and argv[1] == "allow" and not argv[2]) then
-  caller_id = get_phone_number()
+elseif (argv and argv[2] == "allow" and not argv[3]) then
+  caller_id = get_phone_number() or ""
   log.notice("allowing number " .. caller_id)
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
   if (string.len(caller_id) > 9) then
@@ -262,12 +265,12 @@ elseif (argv and argv[1] == "allow" and not argv[2]) then
 
 -- USAGE: "roboblock.lua reset 1234567890"
 -- resets a callers trust to 50%
-elseif (argv and argv[1] == "reset" and argv[2]) then
-	log.notice("resetting number " .. argv[2])
+elseif (argv and argv[2] == "reset" and argv[3]) then
+	log.notice("resetting number " .. argv[3])
   trust, blocked, allowed = get_or_create_caller(caller_id, domain_uuid)
-  update_caller(argv[2], 50, 0, 0)
+  update_caller(argv[3], 50, 0, 0)
 
-elseif (argv and argv[1] == "update") then
+elseif (argv and argv[2] == "update") then
   -- not implemented
   log.notice("update")
   trust, blocked, allowed = get_or_create_caller(1234567890, domain_uuid)
