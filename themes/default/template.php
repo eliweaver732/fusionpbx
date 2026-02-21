@@ -279,8 +279,11 @@
 						});
 					});
 				}
+				{/literal}
 
 				//handle domain search input - search on keyup, switch to first result on Enter
+				{if isset($settings.theme.domain_selector_enter_enabled) && $settings.theme.domain_selector_enter_enabled == 'true'}
+				{literal}
 				$(document).on('keyup', '#domains_search', function(e) {
 					if (e.which == 13) { // Enter key
 						e.preventDefault();
@@ -297,13 +300,15 @@
 						search_domains('domains_list');
 					}
 				});
+				{/literal}
 				{else}
+				{literal}
 				$(document).on('keyup', '#domains_search', function(e) {
 					// Normal search for all keys
 					search_domains('domains_list');
 				});
-				{/if}
 				{/literal}
+				{/if}
 			{/if}
 
 		//keyboard shortcut scripts
