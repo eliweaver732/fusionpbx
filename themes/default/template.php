@@ -279,6 +279,30 @@
 						});
 					});
 				}
+
+				//handle domain search input - search on keyup, switch to first result on Enter
+				$(document).on('keyup', '#domains_search', function(e) {
+					if (e.which == 13) { // Enter key
+						e.preventDefault();
+						// Trigger search with callback to click first result
+						search_domains('domains_list', function() {
+							var firstDomain = $('#domains_list .domains_list_item').first();
+							if (firstDomain.length > 0) {
+								firstDomain.click();
+							}
+						});
+					}
+					else {
+						// Normal search for other keys
+						search_domains('domains_list');
+					}
+				});
+				{else}
+				$(document).on('keyup', '#domains_search', function(e) {
+					// Normal search for all keys
+					search_domains('domains_list');
+				});
+				{/if}
 				{/literal}
 			{/if}
 
@@ -1165,7 +1189,7 @@
 		{/if}
 
 	{*//domain selector *}
-	function search_domains(element_id) {
+	function search_domains(element_id, callback) {
 		var xhttp = new XMLHttpRequest();
 		xhttp.onreadystatechange = function() {
 			//if (this.readyState == 4 && this.status == 200) {
@@ -1238,6 +1262,11 @@
 
 					document.getElementById(element_id).appendChild(div);
 				}
+
+				//call callback if provided
+				if (typeof callback === 'function') {
+					callback();
+				}
 			}
 		};
 		search = document.getElementById('domains_search');
@@ -1283,7 +1312,7 @@
 					<input id='domains_hide' type='button' class='btn' style='float: right' value="{$text.theme_button_close}">
 					<a id='domains_title' href='{$domains_app_path}'>{$text.theme_title_domains}<div class='count' id='domain_count' style='font-size: 80%;'></div></a>
 					<br><br>
-					<input type='text' id='domains_search' class='formfld' style='margin-left: 0; min-width: 100%; width: 100%;' placeholder="{$text.theme_label_search}" onkeyup="search_domains('domains_list');">
+					<input type='text' id='domains_search' class='formfld' style='margin-left: 0; min-width: 100%; width: 100%;' placeholder="{$text.theme_label_search}">
 				</div>
 				<div id='domains_list'></div>
 			</div>
